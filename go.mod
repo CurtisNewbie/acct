@@ -2,7 +2,10 @@ module github.com/curtisnewbie/acct
 
 go 1.21.5
 
-require github.com/curtisnewbie/miso v0.1.1-0.20240610151124-f907d7532864
+require (
+	github.com/curtisnewbie/miso v0.1.1-0.20240610151124-f907d7532864
+	gorm.io/gorm v1.23.8
+)
 
 require (
 	github.com/armon/go-metrics v0.4.0 // indirect
@@ -69,5 +72,4 @@ require (
 	gopkg.in/yaml.v2 v2.4.0 // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect
 	gorm.io/driver/mysql v1.3.6 // indirect
-	gorm.io/gorm v1.23.8 // indirect
 )

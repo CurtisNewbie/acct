@@ -4,6 +4,7 @@ import (
 	"os"
 
 	"github.com/curtisnewbie/acct/internal/schema"
+	"github.com/curtisnewbie/acct/internal/web"
 	"github.com/curtisnewbie/miso/miso"
 )
 
@@ -24,6 +25,10 @@ func BootstrapServer() {
 
 func PreServerBootstrap(rail miso.Rail) error {
 	// declare http endpoints, jobs/tasks, and other components here
+	if err := web.RegisterEndpoints(rail); err != nil {
+		return err
+	}
+
 	return nil
 }
 
