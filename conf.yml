@@ -1,0 +1,53 @@
+# https://github.com/CurtisNewbie/miso/blob/main/doc/config.md
+
+mode.production: "false"
+app.name: "acct"
+
+server: # http server
+  enabled: "true"
+  host: "0.0.0.0"
+  port: "8080"
+
+consul:
+  enabled: "false"
+  consulAddress: "localhost:8500"
+
+redis:
+  enabled: "false"
+  address: "localhost"
+  port: "6379"
+  username: ""
+  password: ""
+  database: "0"
+
+mysql:
+  enabled: "false"
+  host: "localhost"
+  port: "3306"
+  user: "root"
+  password: ""
+  database: "acct"
+  connection:
+    parameters:
+      - "charset=utf8mb4"
+      - "parseTime=True"
+      - "loc=Local"
+      - "readTimeout=30s"
+      - "writeTimeout=30s"
+      - "timeout=3s"
+
+sqlite:
+  file: ""
+
+rabbitmq:
+  enabled: "false"
+  host: "localhost"
+  port: "5672"
+  username: "guest"
+  password: "guest"
+  vhost: ""
+
+logging:
+  level: "info"
+  # rolling:
+    # file: "logs/acct.log"
