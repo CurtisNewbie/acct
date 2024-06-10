@@ -2,7 +2,7 @@ module github.com/curtisnewbie/acct
 
 go 1.21.5
 
-require github.com/curtisnewbie/miso v0.1.0
+require github.com/curtisnewbie/miso v0.1.1-0.20240610151124-f907d7532864
 
 require (
 	github.com/armon/go-metrics v0.4.0 // indirect
