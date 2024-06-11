@@ -69,7 +69,7 @@ func ParseWechatCashflows(rail miso.Rail, path string, user common.User) ([]Save
 
 			var stranTime string = mapTryGet(titleMap, "交易时间", l)
 			var tranTime util.ETime
-			t, err := time.Parse("2006-01-02 15:04:05", stranTime)
+			t, err := time.ParseInLocation("2006-01-02 15:04:05", stranTime, time.FixedZone("", 8))
 			if err != nil {
 				rail.Errorf("failed to parse transaction time: '%v', %v", stranTime, err)
 			} else {

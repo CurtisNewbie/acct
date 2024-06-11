@@ -9,7 +9,7 @@ server: # http server
   port: "8093"
 
 consul:
-  enabled: "false"
+  enabled: "true"
   consulAddress: "localhost:8500"
 
 redis:
