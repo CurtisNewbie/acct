@@ -13,6 +13,11 @@ import (
 	"github.com/curtisnewbie/miso/util"
 )
 
+const (
+	WechatCategory = "WECHAT"
+	WechatCurrency = "CNY"
+)
+
 func ParseWechatCashflows(rail miso.Rail, path string, user common.User) ([]SaveCashflowParam, error) {
 
 	f, err := util.ReadWriteFile(path)
@@ -86,10 +91,9 @@ func ParseWechatCashflows(rail miso.Rail, path string, user common.User) ([]Save
 				TransId:      mapTryGet(titleMap, "交易单号", l),
 				Counterparty: mapTryGet(titleMap, "交易对方", l),
 				Amount:       amtv,
-				Currency:     "CNY",
+				Currency:     WechatCurrency,
 				Extra:        extrav,
-				Category:     "WECHAT",
-				Ctime:        util.Now(),
+				Category:     WechatCategory,
 			}
 			params = append(params, p)
 		}

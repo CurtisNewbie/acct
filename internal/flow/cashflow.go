@@ -10,7 +10,8 @@ import (
 )
 
 var (
-	importPool = util.NewAsyncPool(4, 50)
+	importPool    = util.NewAsyncPool(4, 50)
+	categoryConfs map[string]CategoryConf
 )
 
 const (
@@ -18,13 +19,28 @@ const (
 	DirectionOut = "OUT"
 )
 
+type CategoryConf struct {
+	Code string
+	Name string
+}
+
+func LoadCategoryConfs(rail miso.Rail) {
+	var cate []CategoryConf
+	miso.UnmarshalFromPropKey("acct.category.builtin", &cate)
+	categoryConfs = make(map[string]CategoryConf, len(cate))
+	for i, v := range cate {
+		categoryConfs[v.Code] = cate[i]
+	}
+	rail.Debugf("Loaded conf: %#v", categoryConfs)
+}
+
 type ListCashFlowReq struct {
 	Paging         miso.Paging `desc:"Paging"`
 	Direction      string      `desc:"Flow Direction: IN / OUT" valid:"member:IN|OUT|"`
 	TransTimeStart *util.ETime `desc:"Transaction Time Range Start"`
 	TransTimeEnd   *util.ETime `desc:"Transaction Time Range End"`
 	TransId        string      `desc:"Transaction ID"`
-	Category       string      `desc:"Category"`
+	Category       string      `desc:"Category Code"`
 }
 
 type ListCashFlowRes struct {
@@ -35,9 +51,10 @@ type ListCashFlowRes struct {
 	Amount       string     `desc:"Amount"`
 	Currency     string     `desc:"Currency"`
 	Extra        string     `desc:"Extra Information"`
-	Category     string     `desc:"Category"`
+	Category     string     `desc:"Category Code"`
+	CategoryName string     `desc:"Category Name"`
 	Remark       string     `desc:"Remark"`
-	CTime        util.ETime `desc:"Create Time"`
+	CreatedAt    util.ETime `desc:"Create Time"`
 }
 
 func ListCashFlows(rail miso.Rail, db *gorm.DB, user common.User, req ListCashFlowReq) (miso.PageRes[ListCashFlowRes], error) {
@@ -66,22 +83,36 @@ func ListCashFlows(rail miso.Rail, db *gorm.DB, user common.User, req ListCashFl
 		}).
 		WithSelectQuery(func(tx *gorm.DB) *gorm.DB {
 			return tx.Select("direction", "trans_time", "trans_id", "counterparty",
-				"amount", "currency", "extra", "category", "remark", "ctime")
+				"amount", "currency", "extra", "category", "remark", "created_at")
+		}).
+		ForEach(func(t ListCashFlowRes) ListCashFlowRes {
+			if v, ok := categoryConfs[t.Category]; ok {
+				t.CategoryName = v.Name
+			}
+			return t
 		}).
 		Exec(rail, db)
 }
 
-func ImportWechatCashflows(inb *miso.Inbound, db *gorm.DB) (any, error) {
+func ImportWechatCashflows(inb *miso.Inbound, db *gorm.DB) error {
 	rail := inb.Rail()
-	_, r := inb.Unwrap()
 	user := common.GetUser(rail)
+	rail.Infof("User %v importing wechat cashflows", user.Username)
+
+	_, r := inb.Unwrap()
 	path, err := util.SaveTmpFile("/tmp", r.Body)
 	if err != nil {
-		return nil, err
+		return err
 	}
+	rail.Infof("Wechat cashflows saved to temp file: %v", path)
+
 	importPool.Go(func() {
-		defer os.Remove(path)
 		rail := rail.NextSpan()
+		defer func() {
+			os.Remove(path)
+			rail.Infof("Temp file removed, %v", path)
+		}()
+
 		rec, err := ParseWechatCashflows(rail, path, user)
 		if err != nil {
 			rail.Errorf("failed to parse wechat cashflows for %v, %v", user.Username, err)
@@ -93,7 +124,7 @@ func ImportWechatCashflows(inb *miso.Inbound, db *gorm.DB) (any, error) {
 		rail.Infof("Wechat cashflows (%d records) saved for %v", len(rec), user.Username)
 	})
 
-	return nil, nil
+	return nil
 }
 
 type SaveCashflowParam struct {
@@ -107,7 +138,7 @@ type SaveCashflowParam struct {
 	Extra        string
 	Category     string
 	Remark       string
-	Ctime        util.ETime
+	CreatedAt    util.ETime
 }
 
 func SaveCashflows(rail miso.Rail, db *gorm.DB, records []SaveCashflowParam) error {

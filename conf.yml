@@ -51,3 +51,9 @@ logging:
   level: "info"
   # rolling:
     # file: "logs/acct.log"
+
+acct:
+  category:
+    builtin:
+      - code: "WECHAT"
+        name: "Wechat Pay"
