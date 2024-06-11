@@ -119,12 +119,12 @@ func ImportWechatCashflows(inb *miso.Inbound, db *gorm.DB) error {
 			rail.Errorf("failed to parse wechat cashflows for %v, %v", user.Username, err)
 			return
 		}
+		rail.Infof("Wechat cashflows (%d records) parsed for %v", len(rec), user.Username)
 		if len(rec) > 0 {
-			if err := SaveCashflows(rail, db, rec, user.UserNo); err != nil {
+			if err := SaveCashflows(rail, db, rec, user); err != nil {
 				rail.Errorf("failed to save wechat cashflows for %v, %v", user.Username, err)
 			}
 		}
-		rail.Infof("Wechat cashflows (%d records) saved for %v", len(rec), user.Username)
 	})
 
 	return nil
@@ -144,11 +144,11 @@ type SaveCashflowParam struct {
 	CreatedAt    util.ETime
 }
 
-func SaveCashflows(rail miso.Rail, db *gorm.DB, records []SaveCashflowParam, userNo string) error {
+func SaveCashflows(rail miso.Rail, db *gorm.DB, records []SaveCashflowParam, user common.User) error {
 	if len(records) < 1 {
 		return nil
 	}
-
+	userNo := user.UserNo
 	lock := userCashflowLock(rail, userNo)
 	if err := lock.Lock(); err != nil {
 		return err
@@ -176,6 +176,10 @@ func SaveCashflows(rail miso.Rail, db *gorm.DB, records []SaveCashflowParam, use
 	}
 
 	records = util.Filter(records, func(p SaveCashflowParam) bool { return transIdSet.Has(p.TransId) })
+	rail.Infof("Wechat cashflows (%d records) saved for %v", len(records), user.Username)
+	if len(records) < 1 {
+		return nil
+	}
 	return db.Table("cashflow").CreateInBatches(records, 200).Error
 }
 

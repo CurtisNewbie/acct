@@ -91,7 +91,7 @@ func TestSaveCashflows(t *testing.T) {
 			Remark:       "Wechat Pay",
 		},
 	}
-	err := SaveCashflows(rail, miso.GetMySQL(), p, "UE1049787455160320075953")
+	err := SaveCashflows(rail, miso.GetMySQL(), p, common.User{UserNo: "UE1049787455160320075953"})
 	if err != nil {
 		t.Fatal(err)
 	}
