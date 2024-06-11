@@ -51,8 +51,10 @@ func ParseWechatCashflows(rail miso.Rail, path string) ([]SaveCashflowParam, err
 		}
 
 		if !start {
+			rail.Debugf("not started yet, l: %+v", l)
 			continue
 		}
+
 		if len(titleMap) < 1 {
 			for i, v := range l {
 				titleMap[v] = i
@@ -77,7 +79,7 @@ func ParseWechatCashflows(rail miso.Rail, path string) ([]SaveCashflowParam, err
 
 			extram := map[string]string{}
 			extram["交易类型"] = mapTryGet(titleMap, "交易类型", l)
-			extram["交易类型"] = mapTryGet(titleMap, "交易类型", l)
+			extram["交易类型"] = mapTryGet(titleMap, "交易类型", l) // TODO: Fix this
 			extrav, _ := util.SWriteJson(extram)
 
 			amtv := mapTryGet(titleMap, "金额(元)", l)

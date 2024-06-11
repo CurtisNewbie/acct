@@ -83,7 +83,8 @@ func ListCashFlows(rail miso.Rail, db *gorm.DB, user common.User, req ListCashFl
 		}).
 		WithSelectQuery(func(tx *gorm.DB) *gorm.DB {
 			return tx.Select("direction", "trans_time", "trans_id", "counterparty",
-				"amount", "currency", "extra", "category", "remark", "created_at")
+				"amount", "currency", "extra", "category", "remark", "created_at").
+				Order("trans_time desc")
 		}).
 		ForEach(func(t ListCashFlowRes) ListCashFlowRes {
 			if v, ok := categoryConfs[t.Category]; ok {
