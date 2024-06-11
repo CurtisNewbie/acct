@@ -78,7 +78,7 @@ func TestSaveCashflows(t *testing.T) {
 	miso.InitRedisFromProp(rail)
 	miso.SetLogLevel("debug")
 
-	p := []SaveCashflowParam{
+	nc := []NewCashflow{
 		{
 			TransId:      "1234",
 			Direction:    DirectionOut,
@@ -87,11 +87,15 @@ func TestSaveCashflows(t *testing.T) {
 			Amount:       "123.44",
 			Currency:     "CNY",
 			Extra:        "{}",
-			Category:     "WECHAT",
 			Remark:       "Wechat Pay",
 		},
 	}
-	err := SaveCashflows(rail, miso.GetMySQL(), p, common.User{UserNo: "UE1049787455160320075953"})
+	p := SaveCashflowParams{
+		Cashflows: nc,
+		User:      common.User{UserNo: "UE1049787455160320075953"},
+		Category:  WechatCategory,
+	}
+	err := SaveCashflows(rail, miso.GetMySQL(), p)
 	if err != nil {
 		t.Fatal(err)
 	}

@@ -121,7 +121,12 @@ func ImportWechatCashflows(inb *miso.Inbound, db *gorm.DB) error {
 		}
 		rail.Infof("Wechat cashflows (%d records) parsed for %v", len(rec), user.Username)
 		if len(rec) > 0 {
-			if err := SaveCashflows(rail, db, rec, user); err != nil {
+			param := SaveCashflowParams{
+				Cashflows: rec,
+				User:      user,
+				Category:  WechatCategory,
+			}
+			if err := SaveCashflows(rail, db, param); err != nil {
 				rail.Errorf("failed to save wechat cashflows for %v, %v", user.Username, err)
 			}
 		}
@@ -130,7 +135,24 @@ func ImportWechatCashflows(inb *miso.Inbound, db *gorm.DB) error {
 	return nil
 }
 
-type SaveCashflowParam struct {
+type NewCashflow struct {
+	Direction    string
+	TransTime    util.ETime
+	TransId      string
+	Counterparty string
+	Amount       string
+	Currency     string
+	Extra        string
+	Remark       string
+}
+
+type SaveCashflowParams struct {
+	Cashflows []NewCashflow
+	Category  string
+	User      common.User
+}
+
+type SavingCashflow struct {
 	UserNo       string
 	Direction    string
 	TransTime    util.ETime
@@ -144,43 +166,58 @@ type SaveCashflowParam struct {
 	CreatedAt    util.ETime
 }
 
-func SaveCashflows(rail miso.Rail, db *gorm.DB, records []SaveCashflowParam, user common.User) error {
+func SaveCashflows(rail miso.Rail, db *gorm.DB, param SaveCashflowParams) error {
+	records := param.Cashflows
 	if len(records) < 1 {
 		return nil
 	}
-	userNo := user.UserNo
+	userNo := param.User.UserNo
 	lock := userCashflowLock(rail, userNo)
 	if err := lock.Lock(); err != nil {
 		return err
 	}
 	defer lock.Unlock()
 
+	now := util.Now()
 	transIdSet := util.NewSet[string]()
-	for i := range records {
-		v := records[i]
+	saving := make([]SavingCashflow, 0, len(records))
+	for _, v := range records {
 		transIdSet.Add(v.TransId)
-		v.UserNo = userNo
-		records[i] = v
+		s := SavingCashflow{
+			UserNo:       param.User.UserNo,
+			Category:     param.Category,
+			Direction:    v.Direction,
+			TransTime:    v.TransTime,
+			TransId:      v.TransId,
+			Counterparty: v.Counterparty,
+			Amount:       v.Amount,
+			Currency:     v.Currency,
+			Extra:        v.Extra,
+			Remark:       v.Remark,
+			CreatedAt:    now,
+		}
+		saving = append(saving, s)
 	}
 
 	// find those that already exist and skip them
 	var existingTransId []string
-	err := db.Raw(`SELECT trans_id FROM cashflow WHERE user_no = ? AND trans_id IN ? AND deleted = 0`, userNo, transIdSet.CopyKeys()).
+	err := db.Raw(`SELECT trans_id FROM cashflow WHERE user_no = ? AND category = ? AND trans_id IN ? AND deleted = 0`,
+		userNo, param.Category, transIdSet.CopyKeys()).
 		Scan(&existingTransId).Error
 	if err != nil {
 		return err
 	}
 	for _, ti := range existingTransId {
-		rail.Debugf("Transaction %v for user %v already exists, ignored", ti, userNo)
+		rail.Debugf("Transaction %v (%v) for user %v already exists, ignored", ti, param.Category, userNo)
 		transIdSet.Del(ti)
 	}
 
-	records = util.Filter(records, func(p SaveCashflowParam) bool { return transIdSet.Has(p.TransId) })
-	rail.Infof("Wechat cashflows (%d records) saved for %v", len(records), user.Username)
-	if len(records) < 1 {
+	saving = util.Filter(saving, func(p SavingCashflow) bool { return transIdSet.Has(p.TransId) })
+	rail.Infof("Cashflows (%d records) saved for %v", len(saving), param.User.Username)
+	if len(saving) < 1 {
 		return nil
 	}
-	return db.Table("cashflow").CreateInBatches(records, 200).Error
+	return db.Table("cashflow").CreateInBatches(saving, 200).Error
 }
 
 func userCashflowLock(rail miso.Rail, userNo string) *miso.RLock {

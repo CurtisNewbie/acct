@@ -14,7 +14,7 @@ CREATE TABLE `cashflow` (
   `amount` decimal(22,8) DEFAULT '0.00000000' COMMENT 'amount',
   `currency` varchar(6) DEFAULT '' COMMENT 'currency',
   `extra` json DEFAULT NULL COMMENT 'extra info about the transaction',
-  `category` varchar(128) NOT NULL DEFAULT '' COMMENT 'category name',
+  `category` varchar(32) NOT NULL DEFAULT '' COMMENT 'category',
   `remark` varchar(255) NOT NULL DEFAULT '' COMMENT 'remark',
   `created_at` datetime DEFAULT CURRENT_TIMESTAMP COMMENT 'created at',
   `created_by` varchar(255) NOT NULL DEFAULT '' COMMENT 'created by',
@@ -24,6 +24,6 @@ CREATE TABLE `cashflow` (
   PRIMARY KEY (`id`),
   KEY `user_cate_trans_time_idx` (`user_no`,`category`,`deleted`,`trans_time`),
   KEY `user_trans_time_idx` (`user_no`,`deleted`,`trans_time`),
-  KEY `user_trans_id_idx` (`user_no`,`trans_id`,`deleted`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='Cash flow';
+  KEY `user_cate_trans_id_idx` (`user_no`,`category`,`trans_id`,`deleted`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='Cash flow'
 

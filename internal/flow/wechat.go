@@ -17,7 +17,7 @@ const (
 	WechatCurrency = "CNY"
 )
 
-func ParseWechatCashflows(rail miso.Rail, path string) ([]SaveCashflowParam, error) {
+func ParseWechatCashflows(rail miso.Rail, path string) ([]NewCashflow, error) {
 
 	f, err := util.ReadWriteFile(path)
 	if err != nil {
@@ -25,7 +25,7 @@ func ParseWechatCashflows(rail miso.Rail, path string) ([]SaveCashflowParam, err
 	}
 	defer f.Close()
 
-	params := make([]SaveCashflowParam, 0, 30)
+	params := make([]NewCashflow, 0, 30)
 	titleMap := make(map[string]int, 10)
 	start := false
 
@@ -79,13 +79,14 @@ func ParseWechatCashflows(rail miso.Rail, path string) ([]SaveCashflowParam, err
 
 			extram := map[string]string{}
 			extram["交易类型"] = mapTryGet(titleMap, "交易类型", l)
-			extram["交易类型"] = mapTryGet(titleMap, "交易类型", l) // TODO: Fix this
+			extram["商户单号"] = mapTryGet(titleMap, "商户单号", l)
+			extram["支付方式"] = mapTryGet(titleMap, "支付方式", l)
 			extrav, _ := util.SWriteJson(extram)
 
 			amtv := mapTryGet(titleMap, "金额(元)", l)
 			amtv, _ = strings.CutPrefix(amtv, "¥")
 
-			p := SaveCashflowParam{
+			p := NewCashflow{
 				Direction:    dir,
 				TransTime:    tranTime,
 				TransId:      mapTryGet(titleMap, "交易单号", l),
@@ -93,7 +94,6 @@ func ParseWechatCashflows(rail miso.Rail, path string) ([]SaveCashflowParam, err
 				Amount:       amtv,
 				Currency:     WechatCurrency,
 				Extra:        extrav,
-				Category:     WechatCategory,
 			}
 			params = append(params, p)
 		}
