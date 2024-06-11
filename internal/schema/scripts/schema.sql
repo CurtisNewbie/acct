@@ -22,8 +22,8 @@ CREATE TABLE `cashflow` (
   `updated_by` varchar(255) NOT NULL DEFAULT '' COMMENT 'updated by',
   `deleted` tinyint(1) NOT NULL DEFAULT '0' COMMENT 'record deleted',
   PRIMARY KEY (`id`),
-  KEY `user_cate_trans_time_idx` (`user_no`,`category`,`trans_time`,`deleted`),
-  KEY `user_trans_time_idx` (`user_no`,`trans_time`,`deleted`),
+  KEY `user_cate_trans_time_idx` (`user_no`,`category`,`deleted`,`trans_time`),
+  KEY `user_trans_time_idx` (`user_no`,`deleted`,`trans_time`),
   KEY `user_trans_id_idx` (`user_no`,`trans_id`,`deleted`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='Cash flow';
 
