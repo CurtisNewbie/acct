@@ -3,7 +3,6 @@ package flow
 import (
 	"testing"
 
-	"github.com/curtisnewbie/miso/middleware/user-vault/common"
 	"github.com/curtisnewbie/miso/miso"
 )
 
@@ -12,7 +11,7 @@ func TestParseWechatCashflows(t *testing.T) {
 	if err := miso.LoadConfigFromFile("../../conf.yml", rail); err != nil {
 		t.Fatal(err)
 	}
-	p, err := ParseWechatCashflows(rail, "", common.NilUser())
+	p, err := ParseWechatCashflows(rail, "")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -21,7 +20,7 @@ func TestParseWechatCashflows(t *testing.T) {
 	}
 
 	miso.InitMySQLFromProp(rail)
-	err = SaveCashflows(rail, miso.GetMySQL(), p)
+	err = SaveCashflows(rail, miso.GetMySQL(), p, "")
 	if err != nil {
 		t.Fatal(err)
 	}

@@ -68,3 +68,31 @@ func TestListCashFlows(t *testing.T) {
 	}
 	t.Logf("8. l: %+v", l)
 }
+
+func TestSaveCashflows(t *testing.T) {
+	rail := miso.EmptyRail()
+	if err := miso.LoadConfigFromFile("../../conf.yml", rail); err != nil {
+		t.Fatal(err)
+	}
+	miso.InitMySQLFromProp(rail)
+	miso.InitRedisFromProp(rail)
+	miso.SetLogLevel("debug")
+
+	p := []SaveCashflowParam{
+		{
+			TransId:      "1234",
+			Direction:    DirectionOut,
+			TransTime:    util.Now(),
+			Counterparty: "Apple Corp",
+			Amount:       "123.44",
+			Currency:     "CNY",
+			Extra:        "{}",
+			Category:     "WECHAT",
+			Remark:       "Wechat Pay",
+		},
+	}
+	err := SaveCashflows(rail, miso.GetMySQL(), p, "UE1049787455160320075953")
+	if err != nil {
+		t.Fatal(err)
+	}
+}

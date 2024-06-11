@@ -113,13 +113,15 @@ func ImportWechatCashflows(inb *miso.Inbound, db *gorm.DB) error {
 			rail.Infof("Temp file removed, %v", path)
 		}()
 
-		rec, err := ParseWechatCashflows(rail, path, user)
+		rec, err := ParseWechatCashflows(rail, path)
 		if err != nil {
 			rail.Errorf("failed to parse wechat cashflows for %v, %v", user.Username, err)
 			return
 		}
-		if err := SaveCashflows(rail, db, rec); err != nil {
-			rail.Errorf("failed to save wechat cashflows for %v, %v", user.Username, err)
+		if len(rec) > 0 {
+			if err := SaveCashflows(rail, db, rec, user.UserNo); err != nil {
+				rail.Errorf("failed to save wechat cashflows for %v, %v", user.Username, err)
+			}
 		}
 		rail.Infof("Wechat cashflows (%d records) saved for %v", len(rec), user.Username)
 	})
@@ -141,9 +143,41 @@ type SaveCashflowParam struct {
 	CreatedAt    util.ETime
 }
 
-func SaveCashflows(rail miso.Rail, db *gorm.DB, records []SaveCashflowParam) error {
+func SaveCashflows(rail miso.Rail, db *gorm.DB, records []SaveCashflowParam, userNo string) error {
 	if len(records) < 1 {
 		return nil
 	}
+
+	lock := userCashflowLock(rail, userNo)
+	if err := lock.Lock(); err != nil {
+		return err
+	}
+	defer lock.Unlock()
+
+	transIdSet := util.NewSet[string]()
+	for i := range records {
+		v := records[i]
+		transIdSet.Add(v.TransId)
+		v.UserNo = userNo
+		records[i] = v
+	}
+
+	// find those that already exist and skip them
+	var existingTransId []string
+	err := db.Raw(`SELECT trans_id FROM cashflow WHERE user_no = ? AND trans_id IN ? AND deleted = 0`, userNo, transIdSet.CopyKeys()).
+		Scan(&existingTransId).Error
+	if err != nil {
+		return err
+	}
+	for _, ti := range existingTransId {
+		rail.Debugf("Transaction %v for user %v already exists, ignored", ti, userNo)
+		transIdSet.Del(ti)
+	}
+
+	records = util.Filter(records, func(p SaveCashflowParam) bool { return transIdSet.Has(p.TransId) })
 	return db.Table("cashflow").CreateInBatches(records, 200).Error
+}
+
+func userCashflowLock(rail miso.Rail, userNo string) *miso.RLock {
+	return miso.NewRLockf(rail, "acct:cashflow:user:%v", userNo)
 }

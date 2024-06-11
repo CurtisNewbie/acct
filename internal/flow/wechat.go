@@ -8,7 +8,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/curtisnewbie/miso/middleware/user-vault/common"
 	"github.com/curtisnewbie/miso/miso"
 	"github.com/curtisnewbie/miso/util"
 )
@@ -18,7 +17,7 @@ const (
 	WechatCurrency = "CNY"
 )
 
-func ParseWechatCashflows(rail miso.Rail, path string, user common.User) ([]SaveCashflowParam, error) {
+func ParseWechatCashflows(rail miso.Rail, path string) ([]SaveCashflowParam, error) {
 
 	f, err := util.ReadWriteFile(path)
 	if err != nil {
@@ -85,7 +84,6 @@ func ParseWechatCashflows(rail miso.Rail, path string, user common.User) ([]Save
 			amtv, _ = strings.CutPrefix(amtv, "¥")
 
 			p := SaveCashflowParam{
-				UserNo:       user.UserNo,
 				Direction:    dir,
 				TransTime:    tranTime,
 				TransId:      mapTryGet(titleMap, "交易单号", l),
