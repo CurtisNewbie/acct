@@ -80,22 +80,24 @@ func ParseWechatCashflows(rail miso.Rail, path string) ([]NewCashflow, error) {
 			extram := map[string]string{}
 			extram["交易类型"] = mapTryGet(titleMap, "交易类型", l)
 			extram["商户单号"] = mapTryGet(titleMap, "商户单号", l)
-			paymentType := mapTryGet(titleMap, "支付方式", l)
-			extram["支付方式"] = paymentType
+
+			paymentMethod := mapTryGet(titleMap, "支付方式", l)
+			extram["支付方式"] = paymentMethod
 			extrav, _ := util.SWriteJson(extram)
 
 			amtv := mapTryGet(titleMap, "金额(元)", l)
 			amtv, _ = strings.CutPrefix(amtv, "¥")
 
 			p := NewCashflow{
-				Direction:    dir,
-				TransTime:    tranTime,
-				TransId:      mapTryGet(titleMap, "交易单号", l),
-				Counterparty: mapTryGet(titleMap, "交易对方", l),
-				Amount:       amtv,
-				Currency:     WechatCurrency,
-				Extra:        extrav,
-				Remark:       paymentType,
+				Direction:     dir,
+				PaymentMethod: paymentMethod,
+				TransTime:     tranTime,
+				TransId:       mapTryGet(titleMap, "交易单号", l),
+				Counterparty:  mapTryGet(titleMap, "交易对方", l),
+				Amount:        amtv,
+				Currency:      WechatCurrency,
+				Extra:         extrav,
+				Remark:        "",
 			}
 			params = append(params, p)
 		}

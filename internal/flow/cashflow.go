@@ -44,17 +44,18 @@ type ListCashFlowReq struct {
 }
 
 type ListCashFlowRes struct {
-	Direction    string     `desc:"Flow Direction: IN / OUT"`
-	TransTime    util.ETime `desc:"Transaction Time"`
-	TransId      string     `desc:"Transaction ID"`
-	Counterparty string     `desc:"Counterparty of the transaction"`
-	Amount       string     `desc:"Amount"`
-	Currency     string     `desc:"Currency"`
-	Extra        string     `desc:"Extra Information"`
-	Category     string     `desc:"Category Code"`
-	CategoryName string     `desc:"Category Name"`
-	Remark       string     `desc:"Remark"`
-	CreatedAt    util.ETime `desc:"Create Time"`
+	Direction     string     `desc:"Flow Direction: IN / OUT"`
+	TransTime     util.ETime `desc:"Transaction Time"`
+	TransId       string     `desc:"Transaction ID"`
+	Counterparty  string     `desc:"Counterparty of the transaction"`
+	PaymentMethod string     `desc:"Payment Method"`
+	Amount        string     `desc:"Amount"`
+	Currency      string     `desc:"Currency"`
+	Extra         string     `desc:"Extra Information"`
+	Category      string     `desc:"Category Code"`
+	CategoryName  string     `desc:"Category Name"`
+	Remark        string     `desc:"Remark"`
+	CreatedAt     util.ETime `desc:"Create Time"`
 }
 
 func ListCashFlows(rail miso.Rail, db *gorm.DB, user common.User, req ListCashFlowReq) (miso.PageRes[ListCashFlowRes], error) {
@@ -83,7 +84,7 @@ func ListCashFlows(rail miso.Rail, db *gorm.DB, user common.User, req ListCashFl
 		}).
 		WithSelectQuery(func(tx *gorm.DB) *gorm.DB {
 			return tx.Select("direction", "trans_time", "trans_id", "counterparty",
-				"amount", "currency", "extra", "category", "remark", "created_at").
+				"amount", "currency", "extra", "category", "remark", "created_at", "payment_method").
 				Order("trans_time desc")
 		}).
 		ForEach(func(t ListCashFlowRes) ListCashFlowRes {
@@ -114,15 +115,15 @@ func ImportWechatCashflows(inb *miso.Inbound, db *gorm.DB) error {
 			rail.Infof("Temp file removed, %v", path)
 		}()
 
-		rec, err := ParseWechatCashflows(rail, path)
+		records, err := ParseWechatCashflows(rail, path)
 		if err != nil {
 			rail.Errorf("failed to parse wechat cashflows for %v, %v", user.Username, err)
 			return
 		}
-		rail.Infof("Wechat cashflows (%d records) parsed for %v", len(rec), user.Username)
-		if len(rec) > 0 {
+		rail.Infof("Wechat cashflows (%d records) parsed for %v", len(records), user.Username)
+		if len(records) > 0 {
 			param := SaveCashflowParams{
-				Cashflows: rec,
+				Cashflows: records,
 				User:      user,
 				Category:  WechatCategory,
 			}
@@ -136,14 +137,15 @@ func ImportWechatCashflows(inb *miso.Inbound, db *gorm.DB) error {
 }
 
 type NewCashflow struct {
-	Direction    string
-	TransTime    util.ETime
-	TransId      string
-	Counterparty string
-	Amount       string
-	Currency     string
-	Extra        string
-	Remark       string
+	Direction     string
+	TransTime     util.ETime
+	TransId       string
+	PaymentMethod string
+	Counterparty  string
+	Amount        string
+	Currency      string
+	Extra         string
+	Remark        string
 }
 
 type SaveCashflowParams struct {
@@ -153,17 +155,18 @@ type SaveCashflowParams struct {
 }
 
 type SavingCashflow struct {
-	UserNo       string
-	Direction    string
-	TransTime    util.ETime
-	TransId      string
-	Counterparty string
-	Amount       string
-	Currency     string
-	Extra        string
-	Category     string
-	Remark       string
-	CreatedAt    util.ETime
+	UserNo        string
+	Direction     string
+	TransTime     util.ETime
+	TransId       string
+	Counterparty  string
+	Amount        string
+	PaymentMethod string
+	Currency      string
+	Extra         string
+	Category      string
+	Remark        string
+	CreatedAt     util.ETime
 }
 
 func SaveCashflows(rail miso.Rail, db *gorm.DB, param SaveCashflowParams) error {
@@ -184,17 +187,18 @@ func SaveCashflows(rail miso.Rail, db *gorm.DB, param SaveCashflowParams) error 
 	for _, v := range records {
 		transIdSet.Add(v.TransId)
 		s := SavingCashflow{
-			UserNo:       param.User.UserNo,
-			Category:     param.Category,
-			Direction:    v.Direction,
-			TransTime:    v.TransTime,
-			TransId:      v.TransId,
-			Counterparty: v.Counterparty,
-			Amount:       v.Amount,
-			Currency:     v.Currency,
-			Extra:        v.Extra,
-			Remark:       v.Remark,
-			CreatedAt:    now,
+			UserNo:        param.User.UserNo,
+			Category:      param.Category,
+			PaymentMethod: v.PaymentMethod,
+			Direction:     v.Direction,
+			TransTime:     v.TransTime,
+			TransId:       v.TransId,
+			Counterparty:  v.Counterparty,
+			Amount:        v.Amount,
+			Currency:      v.Currency,
+			Extra:         v.Extra,
+			Remark:        v.Remark,
+			CreatedAt:     now,
 		}
 		saving = append(saving, s)
 	}

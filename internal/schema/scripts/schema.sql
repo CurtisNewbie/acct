@@ -16,6 +16,7 @@ CREATE TABLE `cashflow` (
   `extra` json DEFAULT NULL COMMENT 'extra info about the transaction',
   `category` varchar(32) NOT NULL DEFAULT '' COMMENT 'category',
   `remark` varchar(255) NOT NULL DEFAULT '' COMMENT 'remark',
+  `payment_method` varchar(32) NOT NULL DEFAULT '' COMMENT 'payment method',
   `created_at` datetime DEFAULT CURRENT_TIMESTAMP COMMENT 'created at',
   `created_by` varchar(255) NOT NULL DEFAULT '' COMMENT 'created by',
   `updated_at` datetime DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT 'updated at',
@@ -25,5 +26,4 @@ CREATE TABLE `cashflow` (
   KEY `user_cate_trans_time_idx` (`user_no`,`category`,`deleted`,`trans_time`),
   KEY `user_trans_time_idx` (`user_no`,`deleted`,`trans_time`),
   KEY `user_cate_trans_id_idx` (`user_no`,`category`,`trans_id`,`deleted`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='Cash flow'
-
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='Cash flow';
