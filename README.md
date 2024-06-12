@@ -1,2 +1,3 @@
 # acct
-simple personal accounting service
+
+Simple personal accounting service powered by [github.com/curtisnewbie/miso](https://github.com/curtisnewbie/miso).
