@@ -33,8 +33,7 @@ func ApiImportWechatCashflows(inb *miso.Inbound) (any, error) {
 	return nil, flow.ImportWechatCashflows(inb, miso.GetMySQL())
 }
 
-// TODO
 func ApiCalcCashflowStats(inb *miso.Inbound, req flow.ApiCalcCashflowStatsReq) (any, error) {
-	// user := common.GetUser(inb.Rail())
-	return nil, nil
+	user := common.GetUser(inb.Rail())
+	return nil, flow.CalcCsahflowStats(inb.Rail(), miso.GetMySQL(), req, user)
 }
