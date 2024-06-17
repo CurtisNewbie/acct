@@ -1,6 +1,11 @@
 package flow
 
-import "testing"
+import (
+	"testing"
+
+	"github.com/curtisnewbie/miso/miso"
+	"github.com/curtisnewbie/miso/util"
+)
 
 func TestReqValidate(t *testing.T) {
 	tab := [][]string{
@@ -8,16 +13,13 @@ func TestReqValidate(t *testing.T) {
 		{AggTypeYearly, "20241", "n"},
 		{AggTypeMonthly, "202402", "y"},
 		{AggTypeMonthly, "2024", "n"},
-		{AggTypeWeekly, "20240203", "y"},
+		{AggTypeWeekly, "20240204", "y"},
+		{AggTypeWeekly, "20240203", "n"},
 		{AggTypeWeekly, "2024010", "n"},
 		{AggTypeWeekly, "202401", "n"},
 	}
 	for _, r := range tab {
-		req := ApiCalcCashflowStatsReq{
-			AggType:  r[0],
-			AggRange: r[1],
-		}
-		ti, err := req.Validate()
+		ti, err := ParseAggRangeTime(r[0], r[1])
 		actual := err == nil
 		expected := r[2] == "y"
 
@@ -30,6 +32,45 @@ func TestReqValidate(t *testing.T) {
 		}
 		if actual {
 			t.Logf("Time: %v", ti)
+		}
+	}
+}
+
+func TestOnCalcCashflowStatsEvent(t *testing.T) {
+	rail := miso.EmptyRail()
+	if err := miso.LoadConfigFromFile("../../conf.yml", rail); err != nil {
+		t.Fatal(err)
+	}
+	miso.SetLogLevel("debug")
+	err := miso.InitMySQLFromProp(rail)
+	if err != nil {
+		t.Fatal(err)
+	}
+	_, err = miso.InitRedisFromProp(rail)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	tab := [][]string{
+		{AggTypeYearly, "2024"},
+		{AggTypeMonthly, "202406"},
+		{AggTypeWeekly, "20240602"},
+	}
+	for _, r := range tab {
+		typ := r[0]
+		rng := r[1]
+		ti, err := ParseAggRangeTime(typ, rng)
+		if err != nil {
+			t.Fatal(err)
+		}
+		err = OnCalcCashflowStatsEvent(rail, CalcCashflowStatsEvent{
+			UserNo:   "UE1049787455160320075953",
+			AggType:  typ,
+			AggRange: rng,
+			AggTime:  util.ETime(ti),
+		})
+		if err != nil {
+			t.Fatal(err)
 		}
 	}
 }

@@ -1,10 +1,12 @@
 package flow
 
 import (
+	"fmt"
 	"time"
 
-	"github.com/curtisnewbie/miso/middleware/user-vault/common"
+	"github.com/curtisnewbie/miso/middleware/rabbit"
 	"github.com/curtisnewbie/miso/miso"
+	"github.com/curtisnewbie/miso/util"
 	"gorm.io/gorm"
 )
 
@@ -20,33 +22,201 @@ var (
 		AggTypeMonthly: `200601`,
 		AggTypeWeekly:  `20060102`,
 	}
+
+	CalcAggStatPipeline = rabbit.NewEventPipeline[CalcCashflowStatsEvent]("acct:cashflow:calc-agg-stat").
+				LogPayload().
+				Listen(2, OnCalcCashflowStatsEvent).
+				MaxRetry(3)
 )
+
+type CalcCashflowStatsEvent struct {
+	UserNo   string
+	AggType  string
+	AggRange string
+	AggTime  util.ETime
+}
 
 type ApiCalcCashflowStatsReq struct {
 	AggType  string `desc:"Aggregation Type." valid:"member:YEARLY|MONTLY|WEEKLY"`
 	AggRange string `desc:"Aggregation Range. The corresponding year (YYYY), month (YYYYMM), sunday of the week (YYYYMMDD)." valid:"notEmpty"`
 }
 
-func (r ApiCalcCashflowStatsReq) Validate() (time.Time, error) {
-	pat, ok := RangeFormatMap[r.AggType]
+func ParseAggRangeTime(aggType string, aggRange string) (time.Time, error) {
+	pat, ok := RangeFormatMap[aggType]
 	if !ok {
 		return time.Time{}, miso.NewErrf("Invalid AggType")
 	}
 
-	parsed, err := time.ParseInLocation(pat, r.AggRange, time.Local)
+	t, err := time.ParseInLocation(pat, aggRange, time.Local)
 	if err != nil {
-		return time.Time{}, miso.NewErrf("Invalid AppRange '%s' for %s aggregate type", r.AggRange, r.AggType).
+		return time.Time{}, miso.NewErrf("Invalid AppRange '%s' for %s aggregate type", aggRange, aggType).
 			WithInternalMsg("%v", err)
 	}
-	return parsed, nil
+	if aggType == AggTypeWeekly {
+		wd := t.Weekday()
+		if wd != time.Sunday {
+			return time.Time{}, miso.NewErrf("Invalid aggRange '%v' for aggType: %v, should be Sunday", aggRange, aggType)
+		}
+	}
+	return t, err
 }
 
-func CalcCsahflowStats(rail miso.Rail, db *gorm.DB, req ApiCalcCashflowStatsReq, user common.User) error {
-	_, err := req.Validate()
+func OnCashflowImported(rail miso.Rail, cashflows []NewCashflow, userNo string) error {
+	aggMap := map[string]util.Set[string]{}
+	mapAddAgg := func(typ, val string) {
+		prev, ok := aggMap[typ]
+		if !ok {
+			v := util.NewSet[string]()
+			aggMap[typ] = v
+			prev = v
+		}
+		prev.Add(val)
+	}
+
+	for _, c := range cashflows {
+		tt := c.TransTime.ToTime()
+		y := tt.Format(RangeFormatMap[AggTypeYearly])
+		mapAddAgg(AggTypeYearly, y)
+
+		ym := tt.Format(RangeFormatMap[AggTypeMonthly])
+		mapAddAgg(AggTypeMonthly, ym)
+
+		ymd := tt.AddDate(0, 0, -(int(tt.Weekday()) - int(time.Sunday))).Format(RangeFormatMap[AggTypeWeekly])
+		mapAddAgg(AggTypeWeekly, ymd)
+	}
+
+	for typ, set := range aggMap {
+		for val := range set.Keys {
+			err := CalcCashflowStatsAsync(rail, ApiCalcCashflowStatsReq{AggType: typ, AggRange: val}, userNo)
+			if err != nil {
+				return err
+			}
+		}
+	}
+	return nil
+}
+
+func CalcCashflowStatsAsync(rail miso.Rail, req ApiCalcCashflowStatsReq, userNo string) error {
+	t, err := ParseAggRangeTime(req.AggType, req.AggRange)
 	if err != nil {
 		return err
 	}
+	return CalcAggStatPipeline.Send(rail, CalcCashflowStatsEvent{
+		AggType:  req.AggType,
+		AggRange: req.AggRange,
+		AggTime:  util.ETime(t),
+		UserNo:   userNo,
+	})
+}
 
-	// TODO
+func OnCalcCashflowStatsEvent(rail miso.Rail, evt CalcCashflowStatsEvent) error {
+	rlock := miso.NewRLockf(rail, "acct:calc-cashflow-stats:%v:%v:%v", evt.UserNo, evt.AggType, evt.AggRange)
+	if err := rlock.Lock(); err != nil {
+		return err
+	}
+	defer rlock.Unlock()
+
+	db := miso.GetMySQL()
+	t := evt.AggTime.ToTime()
+	switch evt.AggType {
+	case AggTypeMonthly:
+		return calcMonthlyCashflow(rail, db, t, evt.AggRange, evt.UserNo)
+	case AggTypeWeekly:
+		return calcWeeklyCashflow(rail, db, t, evt.AggRange, evt.UserNo)
+	case AggTypeYearly:
+		return calcYearlyCashflow(rail, db, t, evt.AggRange, evt.UserNo)
+	}
+	return nil
+}
+
+type CashflowStat struct {
+	UserNo   string
+	AggValue string
+	Currency string
+}
+
+func calcYearlyCashflow(rail miso.Rail, db *gorm.DB, t time.Time, aggRange string, userNo string) error {
+	start := time.Date(t.Year(), 1, 1, 0, 0, 0, 0, time.Local)
+	lastDay := time.Date(t.Year(), 12, 1, 0, 0, 0, 0, time.Local).AddDate(0, 1, -1)
+	end := time.Date(t.Year(), 12, lastDay.Day(), 23, 59, 59, 0, time.Local)
+	sum, err := calcCashflowSum(rail, db, TimeRange{Start: start, End: end}, userNo)
+	if err != nil {
+		return err
+	}
+	return updateCashflowStat(rail, db, sum, AggTypeYearly, aggRange, userNo)
+}
+
+func calcMonthlyCashflow(rail miso.Rail, db *gorm.DB, t time.Time, aggRange string, userNo string) error {
+	start := time.Date(t.Year(), t.Month(), 1, 0, 0, 0, 0, time.Local)
+	lastDay := time.Date(t.Year(), t.Month(), 0, 0, 0, 0, 0, time.Local).AddDate(0, 1, -1)
+	end := time.Date(t.Year(), t.Month(), lastDay.Day(), 23, 59, 59, 0, time.Local)
+	sum, err := calcCashflowSum(rail, db, TimeRange{Start: start, End: end}, userNo)
+	if err != nil {
+		return err
+	}
+	return updateCashflowStat(rail, db, sum, AggTypeMonthly, aggRange, userNo)
+}
+
+func calcWeeklyCashflow(rail miso.Rail, db *gorm.DB, t time.Time, aggRange string, userNo string) error {
+	start := time.Date(t.Year(), t.Month(), t.Day(), 0, 0, 0, 0, time.Local) // sunday
+	lastDay := t.AddDate(0, 0, 6)
+	end := time.Date(t.Year(), t.Month(), lastDay.Day(), 23, 59, 59, 0, time.Local)
+	sum, err := calcCashflowSum(rail, db, TimeRange{Start: start, End: end}, userNo)
+	if err != nil {
+		return err
+	}
+	return updateCashflowStat(rail, db, sum, AggTypeWeekly, aggRange, userNo)
+}
+
+type TimeRange struct {
+	Start time.Time
+	End   time.Time
+}
+
+type CashflowSum struct {
+	Currency  string
+	AmountSum string
+}
+
+func calcCashflowSum(rail miso.Rail, db *gorm.DB, tr TimeRange, userNo string) ([]CashflowSum, error) {
+	rail.Infof("Calculating cashflow sum between %v, %v, userNo: %v", tr.Start, tr.End, userNo)
+
+	var res []CashflowSum
+	err := db.Raw(`
+	SELECT SUM(amount) amount_sum, currency
+	FROM cashflow WHERE user_no = ? and trans_time between ? and ? and deleted = 0
+	GROUP BY currency
+	`,
+		userNo, tr.Start, tr.End).
+		Scan(&res).
+		Error
+	if err != nil {
+		return nil, fmt.Errorf("failed to query cashflow sum, %w", err)
+	}
+	return res, nil
+}
+
+func updateCashflowStat(rail miso.Rail, db *gorm.DB, stats []CashflowSum, aggType string, aggRange string, userNo string) error {
+	for _, st := range stats {
+		var id int64
+		err := db.Raw(`SELECT id FROM cashflow_statistics WHERE user_no = ? and agg_type = ? and agg_range = ? and currency = ?`,
+			userNo, aggType, aggRange, st.Currency).Scan(&id).Error
+		if err != nil {
+			return fmt.Errorf("failed to query cashflow_statistics, %w", err)
+		}
+		if id > 0 {
+			err := db.Exec(`UPDATE cashflow_statistics SET agg_value = ? WHERE id = ?`,
+				st.AmountSum, id).Error
+			if err != nil {
+				return fmt.Errorf("failed to update cashflow_statistics, id: %v, %w", id, err)
+			}
+		} else {
+			err := db.Exec(`INSERT INTO cashflow_statistics (user_no, agg_type, agg_range, currency, agg_value) VALUES (?,?,?,?,?)`,
+				userNo, aggType, aggRange, st.Currency, st.AmountSum).Error
+			if err != nil {
+				return fmt.Errorf("failed to save cashflow_statistics, %w", err)
+			}
+		}
+	}
 	return nil
 }
