@@ -62,6 +62,10 @@ func ParseAggRangeTime(aggType string, aggRange string) (time.Time, error) {
 }
 
 func OnCashflowImported(rail miso.Rail, cashflows []NewCashflow, userNo string) error {
+	if len(cashflows) < 1 {
+		return nil
+	}
+
 	aggMap := map[string]util.Set[string]{}
 	mapAddAgg := func(typ, val string) {
 		prev, ok := aggMap[typ]

@@ -95,7 +95,7 @@ func TestSaveCashflows(t *testing.T) {
 		User:      common.User{UserNo: "UE1049787455160320075953"},
 		Category:  WechatCategory,
 	}
-	err := SaveCashflows(rail, miso.GetMySQL(), p)
+	_, err := SaveCashflows(rail, miso.GetMySQL(), p)
 	if err != nil {
 		t.Fatal(err)
 	}

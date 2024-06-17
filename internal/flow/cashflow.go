@@ -127,11 +127,12 @@ func ImportWechatCashflows(inb *miso.Inbound, db *gorm.DB) error {
 				User:      user,
 				Category:  WechatCategory,
 			}
-			if err := SaveCashflows(rail, db, param); err != nil {
+			saved, err := SaveCashflows(rail, db, param)
+			if err != nil {
 				rail.Errorf("failed to save wechat cashflows for %v, %v", user.Username, err)
 			}
 
-			if err := OnCashflowImported(rail, records, user.UserNo); err != nil {
+			if err := OnCashflowImported(rail, saved, user.UserNo); err != nil {
 				rail.Errorf("Failed to update cashflow statistics for cashflow import, userNo: %v, %v", user.UserNo, err)
 			}
 		}
@@ -173,20 +174,41 @@ type SavingCashflow struct {
 	CreatedAt     util.ETime
 }
 
-func SaveCashflows(rail miso.Rail, db *gorm.DB, param SaveCashflowParams) error {
+func SaveCashflows(rail miso.Rail, db *gorm.DB, param SaveCashflowParams) ([]NewCashflow, error) {
 	records := param.Cashflows
 	if len(records) < 1 {
-		return nil
+		return nil, nil
 	}
 	userNo := param.User.UserNo
 	lock := userCashflowLock(rail, userNo)
 	if err := lock.Lock(); err != nil {
-		return err
+		return nil, err
 	}
 	defer lock.Unlock()
 
 	now := util.Now()
+
+	// find those that already exist and skip them
 	transIdSet := util.NewSet[string]()
+	for _, v := range records {
+		transIdSet.Add(v.TransId)
+	}
+	var existingTransId []string
+	err := db.Raw(`SELECT trans_id FROM cashflow WHERE user_no = ? AND category = ? AND trans_id IN ? AND deleted = 0`,
+		userNo, param.Category, transIdSet.CopyKeys()).
+		Scan(&existingTransId).Error
+	if err != nil {
+		return nil, err
+	}
+	for _, ti := range existingTransId {
+		rail.Debugf("Transaction %v (%v) for user %v already exists, ignored", ti, param.Category, userNo)
+		transIdSet.Del(ti)
+	}
+	records = util.Filter(records, func(p NewCashflow) bool { return transIdSet.Has(p.TransId) })
+	if len(records) < 1 {
+		return nil, nil
+	}
+
 	saving := make([]SavingCashflow, 0, len(records))
 	for _, v := range records {
 		transIdSet.Add(v.TransId)
@@ -207,25 +229,8 @@ func SaveCashflows(rail miso.Rail, db *gorm.DB, param SaveCashflowParams) error 
 		saving = append(saving, s)
 	}
 
-	// find those that already exist and skip them
-	var existingTransId []string
-	err := db.Raw(`SELECT trans_id FROM cashflow WHERE user_no = ? AND category = ? AND trans_id IN ? AND deleted = 0`,
-		userNo, param.Category, transIdSet.CopyKeys()).
-		Scan(&existingTransId).Error
-	if err != nil {
-		return err
-	}
-	for _, ti := range existingTransId {
-		rail.Debugf("Transaction %v (%v) for user %v already exists, ignored", ti, param.Category, userNo)
-		transIdSet.Del(ti)
-	}
-
-	saving = util.Filter(saving, func(p SavingCashflow) bool { return transIdSet.Has(p.TransId) })
 	rail.Infof("Cashflows (%d records) saved for %v", len(saving), param.User.Username)
-	if len(saving) < 1 {
-		return nil
-	}
-	return db.Table("cashflow").CreateInBatches(saving, 200).Error
+	return records, db.Table("cashflow").CreateInBatches(saving, 200).Error
 }
 
 func userCashflowLock(rail miso.Rail, userNo string) *miso.RLock {
