@@ -3,6 +3,7 @@ package flow
 import (
 	"testing"
 
+	"github.com/curtisnewbie/miso/middleware/rabbit"
 	"github.com/curtisnewbie/miso/miso"
 	"github.com/curtisnewbie/miso/util"
 )
@@ -72,5 +73,37 @@ func TestOnCalcCashflowStatsEvent(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
+	}
+}
+
+func TestOnCashflowChanged(t *testing.T) {
+	rail := miso.EmptyRail()
+	if err := miso.LoadConfigFromFile("../../conf.yml", rail); err != nil {
+		t.Fatal(err)
+	}
+	miso.SetLogLevel("debug")
+	err := miso.InitMySQLFromProp(rail)
+	if err != nil {
+		t.Fatal(err)
+	}
+	_, err = miso.InitRedisFromProp(rail)
+	if err != nil {
+		t.Fatal(err)
+	}
+	err = rabbit.StartRabbitMqClient(rail)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	userNo := "UE1049787455160320075953"
+	var tranTimes []util.ETime
+	err = miso.GetMySQL().Raw(`SELECT trans_time FROM cashflow WHERE user_no = ?`, userNo).Scan(&tranTimes).Error
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	err = OnCashflowChanged(rail, util.MapTo(tranTimes, func(et util.ETime) CashflowChange { return CashflowChange{et} }), userNo)
+	if err != nil {
+		t.Fatal(err)
 	}
 }

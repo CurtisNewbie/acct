@@ -5,6 +5,7 @@ import (
 	"time"
 
 	"github.com/curtisnewbie/miso/middleware/rabbit"
+	"github.com/curtisnewbie/miso/middleware/user-vault/common"
 	"github.com/curtisnewbie/miso/miso"
 	"github.com/curtisnewbie/miso/util"
 	"gorm.io/gorm"
@@ -37,7 +38,7 @@ type CalcCashflowStatsEvent struct {
 }
 
 type ApiCalcCashflowStatsReq struct {
-	AggType  string `desc:"Aggregation Type." valid:"member:YEARLY|MONTLY|WEEKLY"`
+	AggType  string `desc:"Aggregation Type." valid:"member:YEARLY|MONTHLY|WEEKLY"`
 	AggRange string `desc:"Aggregation Range. The corresponding year (YYYY), month (YYYYMM), sunday of the week (YYYYMMDD)." valid:"notEmpty"`
 }
 
@@ -222,4 +223,44 @@ func updateCashflowStat(rail miso.Rail, db *gorm.DB, stats []CashflowSum, aggTyp
 		}
 	}
 	return nil
+}
+
+type ApiListStatisticsReq struct {
+	Paging   miso.Paging `desc:"Paging Info"`
+	AggType  string      `desc:"Aggregation Type." valid:"member:YEARLY|MONTHLY|WEEKLY"`
+	AggRange string      `desc:"Aggregation Range. The corresponding year (YYYY), month (YYYYMM), sunday of the week (YYYYMMDD)."`
+}
+
+type ApiListStatisticsRes struct {
+	AggType  string `desc:"Aggregation Type."`
+	AggRange string `desc:"Aggregation Range. The corresponding year (YYYY), month (YYYYMM), sunday of the week (YYYYMMDD)."`
+	AggValue string `desc:"Aggregation Value."`
+	Currency string `desc:"Currency"`
+}
+
+func ListCashflowStatistics(rail miso.Rail, db *gorm.DB, req ApiListStatisticsReq, user common.User) (miso.PageRes[ApiListStatisticsRes], error) {
+
+	if req.AggRange != "" {
+		_, err := ParseAggRangeTime(req.AggType, req.AggRange)
+		if err != nil {
+			return miso.PageRes[ApiListStatisticsRes]{}, err
+		}
+	}
+
+	return miso.NewPageQuery[ApiListStatisticsRes]().
+		WithPage(req.Paging).
+		WithBaseQuery(func(tx *gorm.DB) *gorm.DB {
+			tx = tx.Table(`cashflow_statistics`).
+				Where(`user_no = ?`, user.UserNo).
+				Where(`agg_type = ?`, req.AggType).
+				Order("agg_range desc")
+			if req.AggRange != "" {
+				tx = tx.Where("agg_range = ?", req.AggRange)
+			}
+			return tx
+		}).
+		WithSelectQuery(func(tx *gorm.DB) *gorm.DB {
+			return tx.Select("agg_type, agg_range, agg_value, currency")
+		}).
+		Exec(rail, db)
 }
