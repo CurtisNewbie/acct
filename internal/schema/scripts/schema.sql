@@ -54,4 +54,4 @@ CREATE TABLE `cashflow_currency` (
   `updated_by` varchar(255) NOT NULL DEFAULT '' COMMENT 'updated by',
   PRIMARY KEY (`id`),
   UNIQUE KEY `user_currency_uk` (`user_no`,`currency`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='User Cashflow Currency'
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='User Cashflow Currency';
