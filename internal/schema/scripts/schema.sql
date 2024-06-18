@@ -41,5 +41,5 @@ CREATE TABLE `cashflow_statistics` (
   `updated_by` varchar(255) NOT NULL DEFAULT '' COMMENT 'updated by',
   `deleted` tinyint(1) NOT NULL DEFAULT 0 COMMENT 'record deleted',
   PRIMARY KEY (`id`),
-  KEY `user_agg_type_range_idx` (`user_no`, `agg_type`, `agg_range`, `currency`)
+  KEY `user_agg_type_currency_range_idx` (`user_no`, `agg_type`, `currency`, `agg_range`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='Cashflow Statistics';

@@ -229,6 +229,7 @@ type ApiListStatisticsReq struct {
 	Paging   miso.Paging `desc:"Paging Info"`
 	AggType  string      `desc:"Aggregation Type." valid:"member:YEARLY|MONTHLY|WEEKLY"`
 	AggRange string      `desc:"Aggregation Range. The corresponding year (YYYY), month (YYYYMM), sunday of the week (YYYYMMDD)."`
+	Currency string      `desc:"Currency"`
 }
 
 type ApiListStatisticsRes struct {
@@ -253,9 +254,12 @@ func ListCashflowStatistics(rail miso.Rail, db *gorm.DB, req ApiListStatisticsRe
 			tx = tx.Table(`cashflow_statistics`).
 				Where(`user_no = ?`, user.UserNo).
 				Where(`agg_type = ?`, req.AggType).
-				Order("agg_range desc")
+				Order("agg_range desc, currency desc")
 			if req.AggRange != "" {
 				tx = tx.Where("agg_range = ?", req.AggRange)
+			}
+			if req.Currency != "" {
+				tx = tx.Where("currency = ?", req.Currency)
 			}
 			return tx
 		}).
