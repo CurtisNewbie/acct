@@ -106,6 +106,7 @@ func CalcCashflowStatsAsync(rail miso.Rail, req ApiCalcCashflowStatsReq, userNo 
 	if err != nil {
 		return err
 	}
+	rail = rail.NextSpan()
 	return CalcAggStatPipeline.Send(rail, CalcCashflowStatsEvent{
 		AggType:  req.AggType,
 		AggRange: req.AggRange,
@@ -165,7 +166,7 @@ func calcMonthlyCashflow(rail miso.Rail, db *gorm.DB, t time.Time, aggRange stri
 func calcWeeklyCashflow(rail miso.Rail, db *gorm.DB, t time.Time, aggRange string, userNo string) error {
 	start := time.Date(t.Year(), t.Month(), t.Day(), 0, 0, 0, 0, time.Local) // sunday
 	lastDay := t.AddDate(0, 0, 6)
-	end := time.Date(t.Year(), t.Month(), lastDay.Day(), 23, 59, 59, 0, time.Local)
+	end := time.Date(t.Year(), lastDay.Month(), lastDay.Day(), 23, 59, 59, 0, time.Local)
 	sum, err := calcCashflowSum(rail, db, TimeRange{Start: start, End: end}, userNo)
 	if err != nil {
 		return err
@@ -184,11 +185,14 @@ type CashflowSum struct {
 }
 
 func calcCashflowSum(rail miso.Rail, db *gorm.DB, tr TimeRange, userNo string) ([]CashflowSum, error) {
+	if tr.Start.After(tr.End) {
+		tr.Start, tr.End = tr.End, tr.Start
+	}
 	rail.Infof("Calculating cashflow sum between %v, %v, userNo: %v", tr.Start, tr.End, userNo)
 
 	var res []CashflowSum
 	err := db.Raw(`
-	SELECT SUM(amount) amount_sum, currency
+	SELECT SUM(case when direction = 'IN' then amount else (-1 * amount) end) amount_sum, currency
 	FROM cashflow WHERE user_no = ? and trans_time between ? and ? and deleted = 0
 	GROUP BY currency
 	`,

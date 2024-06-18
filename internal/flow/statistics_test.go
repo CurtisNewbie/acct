@@ -2,6 +2,7 @@ package flow
 
 import (
 	"testing"
+	"time"
 
 	"github.com/curtisnewbie/miso/middleware/rabbit"
 	"github.com/curtisnewbie/miso/miso"
@@ -64,6 +65,7 @@ func TestOnCalcCashflowStatsEvent(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
+		t.Logf("rng: %v, ti: %v", rng, ti)
 		err = OnCalcCashflowStatsEvent(rail, CalcCashflowStatsEvent{
 			UserNo:   "UE1049787455160320075953",
 			AggType:  typ,
@@ -106,4 +108,5 @@ func TestOnCashflowChanged(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	time.Sleep(5 * time.Second)
 }
