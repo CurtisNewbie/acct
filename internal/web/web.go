@@ -23,6 +23,7 @@ func RegisterEndpoints(rail miso.Rail) {
 		miso.Post("/cashflow/import/wechat", ApiImportWechatCashflows).Resource(CodeManageCashflows),
 		miso.Get("/cashflow/list-currency", ApiListCurrency).Resource(CodeManageCashflows),
 		miso.IPost("/cashflow/list-statistics", ApiListCashflowStatistics).Resource(CodeManageCashflows),
+		miso.IPost("/cashflow/plot-statistics", ApiPlotCashflowStatistics).Resource(CodeManageCashflows),
 	)
 }
 
@@ -40,4 +41,8 @@ func ApiListCashflowStatistics(inb *miso.Inbound, req flow.ApiListStatisticsReq)
 
 func ApiListCurrency(inb *miso.Inbound) ([]string, error) {
 	return flow.ListCurrencies(inb.Rail(), miso.GetMySQL(), common.GetUser(inb.Rail()))
+}
+
+func ApiPlotCashflowStatistics(inb *miso.Inbound, req flow.ApiPlotStatisticsReq) ([]flow.ApiPlotStatisticsRes, error) {
+	return flow.PlotCashflowStatistics(inb.Rail(), miso.GetMySQL(), req, common.GetUser(inb.Rail()))
 }

@@ -277,3 +277,18 @@ func ListCashflowStatistics(rail miso.Rail, db *gorm.DB, req ApiListStatisticsRe
 		}).
 		Exec(rail, db)
 }
+
+type ApiPlotStatisticsReq struct {
+	AggType  string `desc:"Aggregation Type." valid:"member:YEARLY|MONTHLY|WEEKLY"`
+	Currency string `desc:"Currency"`
+}
+
+type ApiPlotStatisticsRes struct {
+	AggRange string `desc:"Aggregation Range. Sunday of the week (YYYYMMDD)."`
+	AggValue string `desc:"Aggregation Value."`
+}
+
+func PlotCashflowStatistics(rail miso.Rail, db *gorm.DB, req ApiPlotStatisticsReq, user common.User) ([]ApiPlotStatisticsRes, error) {
+	// TODO
+	return nil, nil
+}
