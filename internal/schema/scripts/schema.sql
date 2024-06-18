@@ -43,3 +43,15 @@ CREATE TABLE `cashflow_statistics` (
   PRIMARY KEY (`id`),
   KEY `user_agg_type_currency_range_idx` (`user_no`, `agg_type`, `currency`, `agg_range`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='Cashflow Statistics';
+
+CREATE TABLE `cashflow_currency` (
+  `id` bigint(20) unsigned NOT NULL AUTO_INCREMENT COMMENT 'primary key',
+  `user_no` varchar(32) NOT NULL DEFAULT '' COMMENT 'user no',
+  `currency` varchar(6) DEFAULT '' COMMENT 'currency',
+  `created_at` datetime DEFAULT CURRENT_TIMESTAMP COMMENT 'created at',
+  `created_by` varchar(255) NOT NULL DEFAULT '' COMMENT 'created by',
+  `updated_at` datetime DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT 'updated at',
+  `updated_by` varchar(255) NOT NULL DEFAULT '' COMMENT 'updated by',
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `user_currency_uk` (`user_no`,`currency`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='User Cashflow Currency'

@@ -8,6 +8,7 @@ import (
 	"github.com/curtisnewbie/miso/miso"
 	"github.com/curtisnewbie/miso/util"
 	"gorm.io/gorm"
+	"gorm.io/gorm/clause"
 )
 
 var (
@@ -177,6 +178,11 @@ type SavingCashflow struct {
 	CreatedAt     util.ETime
 }
 
+type CashflowCurrency struct {
+	UserNo   string
+	Currency string
+}
+
 func SaveCashflows(rail miso.Rail, db *gorm.DB, param SaveCashflowParams) ([]NewCashflow, error) {
 	records := param.Cashflows
 	if len(records) < 1 {
@@ -212,6 +218,7 @@ func SaveCashflows(rail miso.Rail, db *gorm.DB, param SaveCashflowParams) ([]New
 		return nil, nil
 	}
 
+	ccySet := util.NewSet[string]()
 	saving := make([]SavingCashflow, 0, len(records))
 	for _, v := range records {
 		transIdSet.Add(v.TransId)
@@ -230,12 +237,24 @@ func SaveCashflows(rail miso.Rail, db *gorm.DB, param SaveCashflowParams) ([]New
 			CreatedAt:     now,
 		}
 		saving = append(saving, s)
+		ccySet.Add(v.Currency)
 	}
 
 	rail.Infof("Cashflows (%d records) saved for %v", len(saving), param.User.Username)
-	return records, db.Table("cashflow").CreateInBatches(saving, 200).Error
+	err = db.Table("cashflow").CreateInBatches(saving, 200).Error
+	if err != nil {
+		return nil, err
+	}
+
+	newUserCcy := util.MapTo(ccySet.CopyKeys(), func(ccy string) CashflowCurrency { return CashflowCurrency{UserNo: userNo, Currency: ccy} })
+	return records, db.Table("cashflow_currency").Clauses(clause.Insert{Modifier: "IGNORE"}).CreateInBatches(newUserCcy, 200).Error
 }
 
 func userCashflowLock(rail miso.Rail, userNo string) *miso.RLock {
 	return miso.NewRLockf(rail, "acct:cashflow:user:%v", userNo)
+}
+
+func ListCurrencies(rail miso.Rail, db *gorm.DB, user common.User) ([]string, error) {
+	var ccy []string
+	return ccy, db.Raw(`SELECT currency FROM cashflow_currency WHERE user_no = ?`, user.UserNo).Scan(&ccy).Error
 }
