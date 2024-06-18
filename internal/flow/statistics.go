@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/curtisnewbie/miso/middleware/money"
 	"github.com/curtisnewbie/miso/middleware/rabbit"
 	"github.com/curtisnewbie/miso/middleware/user-vault/common"
 	"github.com/curtisnewbie/miso/miso"
@@ -265,6 +266,10 @@ func ListCashflowStatistics(rail miso.Rail, db *gorm.DB, req ApiListStatisticsRe
 		}).
 		WithSelectQuery(func(tx *gorm.DB) *gorm.DB {
 			return tx.Select("agg_type, agg_range, agg_value, currency")
+		}).
+		ForEach(func(t ApiListStatisticsRes) ApiListStatisticsRes {
+			t.AggValue = money.FormatAmt(t.AggValue, t.Currency)
+			return t
 		}).
 		Exec(rail, db)
 }

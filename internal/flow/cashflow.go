@@ -3,6 +3,7 @@ package flow
 import (
 	"os"
 
+	"github.com/curtisnewbie/miso/middleware/money"
 	"github.com/curtisnewbie/miso/middleware/user-vault/common"
 	"github.com/curtisnewbie/miso/miso"
 	"github.com/curtisnewbie/miso/util"
@@ -91,6 +92,7 @@ func ListCashFlows(rail miso.Rail, db *gorm.DB, user common.User, req ListCashFl
 			if v, ok := categoryConfs[t.Category]; ok {
 				t.CategoryName = v.Name
 			}
+			t.Amount = money.FormatAmt(t.Amount, t.Currency)
 			return t
 		}).
 		Exec(rail, db)
