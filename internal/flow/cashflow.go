@@ -132,7 +132,8 @@ func ImportWechatCashflows(inb *miso.Inbound, db *gorm.DB) error {
 				rail.Errorf("failed to save wechat cashflows for %v, %v", user.Username, err)
 			}
 
-			if err := OnCashflowImported(rail, saved, user.UserNo); err != nil {
+			changes := util.MapTo(saved, func(nc NewCashflow) CashflowChange { return CashflowChange{TransTime: nc.TransTime} })
+			if err := OnCashflowChanged(rail, changes, user.UserNo); err != nil {
 				rail.Errorf("Failed to update cashflow statistics for cashflow import, userNo: %v, %v", user.UserNo, err)
 			}
 		}

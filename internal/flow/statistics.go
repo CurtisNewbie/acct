@@ -61,8 +61,12 @@ func ParseAggRangeTime(aggType string, aggRange string) (time.Time, error) {
 	return t, err
 }
 
-func OnCashflowImported(rail miso.Rail, cashflows []NewCashflow, userNo string) error {
-	if len(cashflows) < 1 {
+type CashflowChange struct {
+	TransTime util.ETime
+}
+
+func OnCashflowChanged(rail miso.Rail, changes []CashflowChange, userNo string) error {
+	if len(changes) < 1 {
 		return nil
 	}
 
@@ -77,16 +81,11 @@ func OnCashflowImported(rail miso.Rail, cashflows []NewCashflow, userNo string) 
 		prev.Add(val)
 	}
 
-	for _, c := range cashflows {
+	for _, c := range changes {
 		tt := c.TransTime.ToTime()
-		y := tt.Format(RangeFormatMap[AggTypeYearly])
-		mapAddAgg(AggTypeYearly, y)
-
-		ym := tt.Format(RangeFormatMap[AggTypeMonthly])
-		mapAddAgg(AggTypeMonthly, ym)
-
-		ymd := tt.AddDate(0, 0, -(int(tt.Weekday()) - int(time.Sunday))).Format(RangeFormatMap[AggTypeWeekly])
-		mapAddAgg(AggTypeWeekly, ymd)
+		mapAddAgg(AggTypeYearly, tt.Format(RangeFormatMap[AggTypeYearly]))
+		mapAddAgg(AggTypeMonthly, tt.Format(RangeFormatMap[AggTypeMonthly]))
+		mapAddAgg(AggTypeWeekly, tt.AddDate(0, 0, -(int(tt.Weekday())-int(time.Sunday))).Format(RangeFormatMap[AggTypeWeekly]))
 	}
 
 	for typ, set := range aggMap {
