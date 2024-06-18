@@ -8,6 +8,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/curtisnewbie/miso/encoding"
 	"github.com/curtisnewbie/miso/miso"
 	"github.com/curtisnewbie/miso/util"
 )
@@ -83,7 +84,7 @@ func ParseWechatCashflows(rail miso.Rail, path string) ([]NewCashflow, error) {
 
 			paymentMethod := mapTryGet(titleMap, "支付方式", l)
 			extram["支付方式"] = paymentMethod
-			extrav, _ := util.SWriteJson(extram)
+			extrav, _ := encoding.SWriteJson(extram)
 
 			amtv := mapTryGet(titleMap, "金额(元)", l)
 			amtv, _ = strings.CutPrefix(amtv, "¥")
