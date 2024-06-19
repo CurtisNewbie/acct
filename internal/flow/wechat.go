@@ -75,7 +75,7 @@ func ParseWechatCashflows(rail miso.Rail, path string) ([]NewCashflow, error) {
 			if err != nil {
 				rail.Errorf("failed to parse transaction time: '%v', %v", stranTime, err)
 			} else {
-				tranTime = util.ETime(t)
+				tranTime = util.ToETime(t)
 			}
 
 			extram := map[string]string{}

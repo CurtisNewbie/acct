@@ -43,24 +43,24 @@ type ApiCalcCashflowStatsReq struct {
 	AggRange string `desc:"Aggregation Range. The corresponding year (YYYY), month (YYYYMM), sunday of the week (YYYYMMDD)." valid:"notEmpty"`
 }
 
-func ParseAggRangeTime(aggType string, aggRange string) (time.Time, error) {
+func ParseAggRangeTime(aggType string, aggRange string) (util.ETime, error) {
 	pat, ok := RangeFormatMap[aggType]
 	if !ok {
-		return time.Time{}, miso.NewErrf("Invalid AggType")
+		return util.ETime{}, miso.NewErrf("Invalid AggType")
 	}
 
 	t, err := time.ParseInLocation(pat, aggRange, time.Local)
 	if err != nil {
-		return time.Time{}, miso.NewErrf("Invalid AppRange '%s' for %s aggregate type", aggRange, aggType).
+		return util.ETime{}, miso.NewErrf("Invalid AppRange '%s' for %s aggregate type", aggRange, aggType).
 			WithInternalMsg("%v", err)
 	}
 	if aggType == AggTypeWeekly {
 		wd := t.Weekday()
 		if wd != time.Sunday {
-			return time.Time{}, miso.NewErrf("Invalid aggRange '%v' for aggType: %v, should be Sunday", aggRange, aggType)
+			return util.ETime{}, miso.NewErrf("Invalid aggRange '%v' for aggType: %v, should be Sunday", aggRange, aggType)
 		}
 	}
-	return t, err
+	return util.ToETime(t), err
 }
 
 type CashflowChange struct {
@@ -110,7 +110,7 @@ func CalcCashflowStatsAsync(rail miso.Rail, req ApiCalcCashflowStatsReq, userNo 
 	return CalcAggStatPipeline.Send(rail, CalcCashflowStatsEvent{
 		AggType:  req.AggType,
 		AggRange: req.AggRange,
-		AggTime:  util.ETime(t),
+		AggTime:  t,
 		UserNo:   userNo,
 	})
 }

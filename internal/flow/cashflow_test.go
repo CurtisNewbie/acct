@@ -54,14 +54,14 @@ func TestListCashFlows(t *testing.T) {
 	}
 	t.Logf("6. l: %+v", l)
 
-	tt := util.ETime(time.Now().Add(-time.Hour * 24))
+	tt := util.Now().Add(-time.Hour * 24)
 	l, err = ListCashFlows(rail, miso.GetMySQL(), common.User{UserNo: "test_user"}, ListCashFlowReq{TransTimeStart: &tt})
 	if err != nil {
 		t.Fatal(err)
 	}
 	t.Logf("7. l: %+v", l)
 
-	tt = util.ETime(time.Now().Add(time.Hour * 24))
+	tt = util.Now().Add(time.Hour * 24)
 	l, err = ListCashFlows(rail, miso.GetMySQL(), common.User{UserNo: "test_user"}, ListCashFlowReq{TransTimeStart: &tt})
 	if err != nil {
 		t.Fatal(err)
