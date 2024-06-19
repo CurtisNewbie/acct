@@ -2,6 +2,8 @@ package flow
 
 import (
 	"fmt"
+	"sort"
+	"strings"
 	"time"
 
 	"github.com/curtisnewbie/miso/middleware/money"
@@ -304,9 +306,50 @@ func PlotCashflowStatistics(rail miso.Rail, db *gorm.DB, req ApiPlotStatisticsRe
 		pad = "0101"
 	}
 
-	return res, db.Raw(`
+	err := db.Raw(`
 			SELECT agg_range, agg_value FROM cashflow_statistics
 			WHERE user_no = ? AND agg_type = ? AND currency = ?
 			AND str_to_date(concat(agg_range, ?), '%Y%m%d') BETWEEN ? AND ?`,
 		user.UserNo, req.AggType, req.Currency, pad, req.StartTime, req.EndTime).Scan(&res).Error
+	if err == nil {
+		if res == nil {
+			res = []ApiPlotStatisticsRes{}
+		}
+		set := util.NewSet[string]()
+		for _, r := range res {
+			set.Add(r.AggRange)
+		}
+		start := req.StartTime
+		for start.Before(req.EndTime) {
+			var next string
+			switch req.AggType {
+			case AggTypeYearly:
+				next = start.Format(RangeFormatMap[AggTypeYearly])
+			case AggTypeMonthly:
+				next = start.Format(RangeFormatMap[AggTypeMonthly])
+			case AggTypeWeekly:
+				sun := start.AddDate(0, 0, -(int(start.Weekday()) - int(time.Sunday)))
+				if !sun.Before(start) {
+					next = start.Format(RangeFormatMap[AggTypeWeekly])
+				} else {
+					start = sun
+				}
+			}
+
+			if next != "" && set.Add(next) {
+				res = append(res, ApiPlotStatisticsRes{AggRange: next, AggValue: "0"})
+			}
+
+			switch req.AggType {
+			case AggTypeYearly:
+				start = start.AddDate(1, 0, 0)
+			case AggTypeMonthly:
+				start = start.AddDate(0, 1, 0)
+			case AggTypeWeekly:
+				start = start.AddDate(0, 0, 7)
+			}
+		}
+		sort.Slice(res, func(i, j int) bool { return strings.Compare(res[i].AggRange, res[j].AggRange) < 0 })
+	}
+	return res, err
 }
