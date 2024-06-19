@@ -279,16 +279,34 @@ func ListCashflowStatistics(rail miso.Rail, db *gorm.DB, req ApiListStatisticsRe
 }
 
 type ApiPlotStatisticsReq struct {
-	AggType  string `desc:"Aggregation Type." valid:"member:YEARLY|MONTHLY|WEEKLY"`
-	Currency string `desc:"Currency"`
+	StartTime util.ETime `desc:"Start time"`
+	EndTime   util.ETime `desc:"End time"`
+	AggType   string     `desc:"Aggregation Type." valid:"member:YEARLY|MONTHLY|WEEKLY"`
+	Currency  string     `desc:"Currency"`
 }
 
 type ApiPlotStatisticsRes struct {
-	AggRange string `desc:"Aggregation Range. Sunday of the week (YYYYMMDD)."`
+	AggRange string `desc:"Aggregation Range. The corresponding year (YYYY), month (YYYYMM), sunday of the week (YYYYMMDD)."`
 	AggValue string `desc:"Aggregation Value."`
 }
 
 func PlotCashflowStatistics(rail miso.Rail, db *gorm.DB, req ApiPlotStatisticsReq, user common.User) ([]ApiPlotStatisticsRes, error) {
-	// TODO
-	return nil, nil
+	if req.StartTime.After(req.EndTime) {
+		req.StartTime, req.EndTime = req.EndTime, req.StartTime
+	}
+
+	var pad string = ""
+	var res []ApiPlotStatisticsRes
+	switch req.AggType {
+	case AggTypeMonthly:
+		pad = "01"
+	case AggTypeYearly:
+		pad = "0101"
+	}
+
+	return res, db.Raw(`
+			SELECT agg_range, agg_value FROM cashflow_statistics
+			WHERE user_no = ? AND agg_type = ? AND currency = ?
+			AND str_to_date(concat(agg_range, ?), '%Y%m%d') BETWEEN ? AND ?`,
+		user.UserNo, req.AggType, req.Currency, pad, req.StartTime, req.EndTime).Scan(&res).Error
 }

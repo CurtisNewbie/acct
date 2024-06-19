@@ -5,6 +5,7 @@ import (
 	"time"
 
 	"github.com/curtisnewbie/miso/middleware/rabbit"
+	"github.com/curtisnewbie/miso/middleware/user-vault/common"
 	"github.com/curtisnewbie/miso/miso"
 	"github.com/curtisnewbie/miso/util"
 )
@@ -109,4 +110,39 @@ func TestOnCashflowChanged(t *testing.T) {
 		t.Fatal(err)
 	}
 	time.Sleep(5 * time.Second)
+}
+
+func TestPlotCashflowStatistics(t *testing.T) {
+	rail := miso.EmptyRail()
+	if err := miso.LoadConfigFromFile("../../conf.yml", rail); err != nil {
+		t.Fatal(err)
+	}
+	miso.SetLogLevel("debug")
+	err := miso.InitMySQLFromProp(rail)
+	if err != nil {
+		t.Fatal(err)
+	}
+	_, err = miso.InitRedisFromProp(rail)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	startt, _ := util.ParseClassicDateTime("2024-01-01 00:00:00", time.Local)
+	endt, _ := util.ParseClassicDateTime("2024-12-01 00:00:00", time.Local)
+	start := util.ToETime(startt)
+	end := util.ToETime(endt)
+	tab := []string{AggTypeMonthly, AggTypeWeekly, AggTypeYearly}
+
+	for _, ta := range tab {
+		plots, err := PlotCashflowStatistics(rail, miso.GetMySQL(), ApiPlotStatisticsReq{
+			StartTime: start,
+			EndTime:   end,
+			AggType:   ta,
+			Currency:  "CNY",
+		}, common.User{UserNo: "UE1049787455160320075953"})
+		if err != nil {
+			t.Fatal(err)
+		}
+		t.Logf("ta: %v, plots: %+v", ta, plots)
+	}
 }
