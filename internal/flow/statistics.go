@@ -274,7 +274,7 @@ func ListCashflowStatistics(rail miso.Rail, db *gorm.DB, req ApiListStatisticsRe
 			return tx.Select("agg_type, agg_range, agg_value, currency")
 		}).
 		ForEach(func(t ApiListStatisticsRes) ApiListStatisticsRes {
-			t.AggValue = money.FormatAmt(t.AggValue, t.Currency)
+			t.AggValue = money.UnitFmt(t.AggValue, t.Currency)
 			return t
 		}).
 		Exec(rail, db)

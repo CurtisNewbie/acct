@@ -104,7 +104,7 @@ func ListCashFlows(rail miso.Rail, db *gorm.DB, user common.User, req ListCashFl
 			if v, ok := categoryConfs[t.Category]; ok {
 				t.CategoryName = v.Name
 			}
-			t.Amount = money.FormatAmt(t.Amount, t.Currency)
+			t.Amount = money.UnitFmt(t.Amount, t.Currency)
 			return t
 		}).
 		Exec(rail, db)
