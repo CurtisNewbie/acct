@@ -137,12 +137,6 @@ func OnCalcCashflowStatsEvent(rail miso.Rail, evt CalcCashflowStatsEvent) error 
 	return nil
 }
 
-type CashflowStat struct {
-	UserNo   string
-	AggValue string
-	Currency string
-}
-
 func calcYearlyCashflow(rail miso.Rail, db *gorm.DB, t time.Time, aggRange string, userNo string) error {
 	start := time.Date(t.Year(), 1, 1, 0, 0, 0, 0, time.Local)
 	lastDay := time.Date(t.Year(), 12, 1, 0, 0, 0, 0, time.Local).AddDate(0, 1, -1)
