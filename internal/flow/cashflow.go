@@ -54,6 +54,7 @@ type ListCashFlowReq struct {
 	TransTimeEnd   *util.ETime `desc:"Transaction Time Range End"`
 	TransId        string      `desc:"Transaction ID"`
 	Category       string      `desc:"Category Code"`
+	MinAmt         *money.Amt  `desc:"Minimum amount"`
 }
 
 type ListCashFlowRes struct {
@@ -78,9 +79,6 @@ func ListCashFlows(rail miso.Rail, db *gorm.DB, user common.User, req ListCashFl
 			tx = tx.Table(`cashflow`).
 				Where("user_no = ?", user.UserNo).
 				Where("deleted = 0")
-			if req.Direction != "" {
-				tx = tx.Where("direction = ?", req.Direction)
-			}
 			if req.TransId != "" {
 				tx = tx.Where("trans_id = ?", req.TransId)
 			}
@@ -92,6 +90,24 @@ func ListCashFlows(rail miso.Rail, db *gorm.DB, user common.User, req ListCashFl
 			}
 			if req.TransTimeEnd != nil {
 				tx = tx.Where("trans_time <= ?", req.TransTimeEnd)
+			}
+			if req.MinAmt != nil {
+				abs := req.MinAmt.Abs()
+				if abs.Cmp(money.Zero()) > 0 {
+					tx = tx.Where("amount >= ?", abs)
+					if req.MinAmt.Cmp(money.Zero()) < 0 {
+						if req.Direction != DirectionOut {
+							tx = tx.Where("direction = ?", DirectionOut)
+						}
+					} else {
+						if req.Direction != DirectionIn {
+							tx = tx.Where("direction = ?", DirectionIn)
+						}
+					}
+				}
+			}
+			if req.Direction != "" {
+				tx = tx.Where("direction = ?", req.Direction)
 			}
 			return tx
 		}).
